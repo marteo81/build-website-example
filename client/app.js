@@ -3,30 +3,59 @@
 async function searchHotels() {
 	document.getElementById("loader").style.display = "block";
 
-	// Clear previous hotel elements
+	// Clear previous hotel elements and funny response
 	const hotelsDiv = document.getElementById("hotels");
 	hotelsDiv.innerHTML = "";
+	document.getElementById("funny-response").innerHTML = "";
 
-	console.log("Searching for hotels...");
+	// Get field values
+	const whereInput = document.getElementById("where").value;
+	const whyInput = document.getElementById("why").value;
 	const checkin = document.getElementById("checkin").value;
 	const checkout = document.getElementById("checkout").value;
 	const adults = document.getElementById("adults").value;
-	const city = document.getElementById("city").value;
-	const countryCode = document.getElementById("countryCode").value;
 	const environment = document.getElementById("environment").value;
 
-	console.log("Checkin:", checkin, "Checkout:", checkout, "Adults", adults);
+	// Parse 'where' (expecting 'City, CountryCode')
+	let city = "";
+	let countryCode = "";
+	if (whereInput.includes(",")) {
+		[city, countryCode] = whereInput.split(",").map(s => s.trim());
+	} else {
+		city = whereInput.trim();
+		countryCode = "US"; // fallback
+	}
+
+	// Compose OpenAI prompt fields
+	const what = whyInput || `Hotel for ${adults} adult(s)`;
+	const where = whereInput;
+	const when = `${checkin} to ${checkout}`;
 
 	try {
-		// Make a request to your backend server
+		// 1. Get funny response from backend
+		const funnyRes = await fetch("http://localhost:3000/funny-response", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ what, where, when })
+		});
+		const funnyData = await funnyRes.json();
+		if (funnyData.funnyResponse) {
+			document.getElementById("funny-response").innerText = funnyData.funnyResponse;
+		}
+
+		// 2. Wait a moment for comedic effect
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+
+		// 3. Make a request to your backend server for hotels
 		const response = await fetch(
-			`http://localhost:3000/search-hotels?checkin=${checkin}&checkout=${checkout}&adults=${adults}&city=${city}&countryCode=${countryCode}&environment=${environment}`
+			`http://localhost:3000/search-hotels?checkin=${encodeURIComponent(checkin)}&checkout=${encodeURIComponent(checkout)}&adults=${encodeURIComponent(adults)}&city=${encodeURIComponent(city)}&countryCode=${encodeURIComponent(countryCode)}&environment=${encodeURIComponent(environment)}`
 		);
 		const rates = (await response.json()).rates;
 		console.log(rates);
 		displayRatesAndHotels(rates);
 
 		document.getElementById("loader").style.display = "none";
+		// Do NOT clear the funny response after showing hotels
 	} catch (error) {
 		console.error("Error fetching hotels:", error);
 		document.getElementById("loader").style.display = "none";
@@ -35,6 +64,8 @@ async function searchHotels() {
 
 function displayRatesAndHotels(rates) {
 	const hotelsDiv = document.getElementById("hotels");
+	hotelsDiv.innerHTML = "<div class='card-container' id='hotel-card-container'></div>";
+	const cardContainer = document.getElementById("hotel-card-container");
 
 	rates.forEach((rate) => {
 		const minRate = rate.roomTypes.reduce((min, current) => {
@@ -42,54 +73,40 @@ function displayRatesAndHotels(rates) {
 			const currentAmount = current.rates[0].retailRate.total[0].amount;
 			return minAmount < currentAmount ? min : current;
 		});
-		console.log();
+		const hotel = rate.hotel;
+		// Placeholder/fallbacks for missing data
+		const address = hotel.address || "Address not available";
+		const distance = hotel.distanceFromCenter ? `${hotel.distanceFromCenter} m from centre` : "Distance unknown";
+		const amenities = hotel.amenities ? hotel.amenities.join(", ") : "No amenities info";
+		const rating = hotel.rating || "8.5";
+		const reviews = hotel.reviews || "1000";
+		const reviewText = hotel.reviewText || "Fabulous";
+		const price = minRate.rates[0].retailRate.total[0].amount;
+		const currency = minRate.rates[0].retailRate.total[0].currency;
+		const cancellation = minRate.rates[0].cancellationPolicies.refundableTag == "NRFN" ? "Non refundable" : "Free cancellation";
+		const boardName = minRate.rates[0].boardName || "Room Only";
 
 		const hotelElement = document.createElement("div");
+		hotelElement.className = "card horizontal-card";
 		hotelElement.innerHTML = `
-		<div class='card-container'>
-		<div class='card'>
-			<div class='flex items-start'>
-				<div class='card-image'>
-					<img
-						src='${rate.hotel.main_photo}'
-						alt='hotel'
-					/>
-				</div>
-				<div class='flex-between-end w-full'>
-					<div>
-						<h4 class='card-title'>${minRate.rates[0].name}</h4>
-						<h3 class='card-id'>Hotel Name : ${rate.hotel.name}</h3>
-						<p class='featues'>
-							Max Occupancy ∙ <span>${minRate.rates[0].maxOccupancy}</span> Adult Count
-							∙ <span>${minRate.rates[0].adultCount}</span> Child Count ∙
-							<span>${minRate.rates[0].childCount}</span>
-							Board Type ∙ <span>${minRate.rates[0].boardType}</span> Board Name ∙
-							<span> ${minRate.rates[0].boardName}</span>
-						</p>
-						<p class='red flex items-center'>
-							<span>
-								${minRate.rates[0].cancellationPolicies.refundableTag == "NRFN"
-				? "Non refundable"
-				: "Refundable"
-			}
-							</span>
-						</p>
-					</div>
-					<p class='flex flex-col mb-0'>
-    					<span class=${minRate.rates[0].retailRate.total[0].amount}></span>
-   						<span class=${minRate.rates[0].retailRate.suggestedSellingPrice[0].amount}></span>
-   						<button class='price-btn' onclick="proceedToBooking('${minRate.offerId}')">
-       						 <s>${minRate.rates[0].retailRate.suggestedSellingPrice[0].amount} ${minRate.rates[0].retailRate.suggestedSellingPrice[0].currency}</s>
-        					BOOK NOW ${minRate.rates[0].retailRate.total[0].amount} ${minRate.rates[0].retailRate.total[0].currency}
-    					</button>
-					</p>
-				</div>
+			<div class="hotel-img-col">
+				<img src='${hotel.main_photo}' alt='hotel' class="hotel-img" />
 			</div>
-		</div>
-	</div>
-        `;
-
-		hotelsDiv.appendChild(hotelElement);
+			<div class="hotel-details-col">
+				<h3 class='hotel-title'>${hotel.name}</h3>
+				<div class="hotel-address">${address}</div>
+				<div class="hotel-distance">${distance}</div>
+				<div class="hotel-amenities">${boardName} &bull; ${cancellation}</div>
+				<div class="hotel-amenities-list">${amenities}</div>
+			</div>
+			<div class="hotel-price-col">
+				<div class="hotel-rating-badge">${reviewText} <span>${rating}</span></div>
+				<div class="hotel-reviews">${reviews} reviews</div>
+				<div class="hotel-price">${currency} ${price}</div>
+				<button class='see-availability-btn' onclick="proceedToBooking('${minRate.offerId}')">See availability</button>
+			</div>
+		`;
+		cardContainer.appendChild(hotelElement);
 	});
 }
 

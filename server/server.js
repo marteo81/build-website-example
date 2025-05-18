@@ -5,6 +5,7 @@ const liteApi = require("liteapi-node-sdk");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
+const { OpenAI } = require("openai");
 
 app.use(
   cors({
@@ -16,6 +17,8 @@ const prod_apiKey = process.env.PROD_API_KEY;
 const sandbox_apiKey = process.env.SAND_API_KEY;
 
 app.use(bodyParser.json());
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.get("/search-hotels", async (req, res) => {
   console.log("Search endpoint hit");
@@ -280,6 +283,26 @@ app.get("/book", (req, res) => {
       console.error("Error during booking:", err);
       res.status(500).send(`Failed to book: ${err.message}`);
     });
+});
+
+app.post("/funny-response", async (req, res) => {
+  const { what, where, when } = req.body;
+  try {
+    const prompt = `A user is searching for hotels with the following details:\nWhat: ${what}\nWhere: ${where}\nWhen: ${when}\nWrite a very funny, pseudo-trolling response to this search. Be playful, witty, and a bit sarcastic, but not mean. Make the user laugh before they see their real results.`;
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "You are a witty, playful, and slightly sarcastic hotel search assistant. Always make the user laugh with your responses." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 100
+    });
+    const funnyResponse = completion.choices[0].message.content;
+    res.json({ funnyResponse });
+  } catch (error) {
+    console.error("Error generating funny response:", error);
+    res.status(500).json({ error: "Failed to generate funny response" });
+  }
 });
 
 // Serve the client-side application

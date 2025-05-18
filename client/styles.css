@@ -23,12 +23,22 @@ header {
 
 .card-container {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+	grid-template-columns: repeat(3, 1fr);
 	gap: 32px;
 	margin: 32px 0;
 	padding: 0 32px;
 }
 
+@media (max-width: 900px) {
+	.card-container {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+@media (max-width: 600px) {
+	.card-container {
+		grid-template-columns: 1fr;
+	}
+}
 .card {
 	background: rgba(255, 255, 255, 0.85);
 	border-radius: 24px;
@@ -37,8 +47,14 @@ header {
 	transition: transform 0.25s cubic-bezier(.4,2,.6,1), box-shadow 0.25s;
 	border: none;
 	position: relative;
-	overflow: hidden;
+	overflow: visible;
 	backdrop-filter: blur(6px);
+	word-break: break-word;
+	white-space: normal;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	min-width: 320px;
 }
 .card:hover {
 	transform: translateY(-8px) scale(1.025);
@@ -76,18 +92,24 @@ header {
 	margin-bottom: 12px;
 	margin-top: 0;
 	letter-spacing: 0.5px;
+	word-break: break-word;
+	white-space: normal;
 }
 .card-id {
 	font-size: 1.1rem;
 	font-weight: 600;
 	color: #22223b;
 	margin-bottom: 8px;
+	word-break: break-word;
+	white-space: normal;
 }
 .featues, .features, .facilities {
 	font-size: 0.95rem;
 	font-weight: 500;
 	color: #4f4f4f;
 	margin-bottom: 8px;
+	word-break: break-word;
+	white-space: normal;
 }
 .price {
 	font-size: 2rem;
