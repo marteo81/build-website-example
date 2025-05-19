@@ -87,23 +87,26 @@ function displayRatesAndHotels(rates) {
 		const boardName = minRate.rates[0].boardName || "Room Only";
 
 		const hotelElement = document.createElement("div");
-		hotelElement.className = "card horizontal-card";
+		hotelElement.className = "card standard-card";
 		hotelElement.innerHTML = `
-			<div class="hotel-img-col">
-				<img src='${hotel.main_photo}' alt='hotel' class="hotel-img" />
+			<div class="card-image">
+				<img src='${hotel.main_photo}' alt='hotel' />
 			</div>
-			<div class="hotel-details-col">
-				<h3 class='hotel-title'>${hotel.name}</h3>
-				<div class="hotel-address">${address}</div>
-				<div class="hotel-distance">${distance}</div>
-				<div class="hotel-amenities">${boardName} &bull; ${cancellation}</div>
-				<div class="hotel-amenities-list">${amenities}</div>
-			</div>
-			<div class="hotel-price-col">
-				<div class="hotel-rating-badge">${reviewText} <span>${rating}</span></div>
-				<div class="hotel-reviews">${reviews} reviews</div>
-				<div class="hotel-price">${currency} ${price}</div>
-				<button class='see-availability-btn' onclick="proceedToBooking('${minRate.offerId}')">See availability</button>
+			<div class="card-content">
+				<h3 class='card-title'>${hotel.name}</h3>
+				<div class="card-id">${address}</div>
+				<div class="features">${distance}</div>
+				<div class="features">${boardName} &bull; ${cancellation}</div>
+				<div class="facilities">${amenities}</div>
+				<div class="rating-row">
+					<span class="review-badge">${reviewText}</span>
+					<span class="rating">${rating}</span>
+					<span class="reviews">${reviews} reviews</span>
+				</div>
+				<div class="price-row">
+					<span class="price">${currency} ${price}</span>
+					<button class='see-availability-btn' onclick="proceedToBooking('${minRate.offerId}')">See availability</button>
+				</div>
 			</div>
 		`;
 		cardContainer.appendChild(hotelElement);
