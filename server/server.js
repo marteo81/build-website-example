@@ -669,58 +669,60 @@ app.get("/hotel-details", async (req, res) => {
         
         console.log(`Found hotel details for ${hotelId} from LiteAPI`);
         
-        // Transform and enhance the hotel data
+        // Transform and enhance the hotel data based on the comprehensive response structure
         const enhancedHotelDetails = {
           id: hotelData.id,
           name: hotelData.name,
           description: hotelData.hotelDescription,
+          importantInformation: hotelData.hotelImportantInformation,
           address: hotelData.address,
           city: hotelData.city,
           country: hotelData.country,
-          zip: hotelData.zip,
-          latitude: hotelData.latitude,
-          longitude: hotelData.longitude,
-          starRating: hotelData.stars,
+          starRating: hotelData.starRating,
           rating: hotelData.rating,
           reviewCount: hotelData.reviewCount,
-          currency: hotelData.currency,
-          chain: hotelData.chain,
-          chainId: hotelData.chainId,
+          chain: hotelData.chain || "Not Available",
+          hotelType: hotelData.hotelType,
           hotelTypeId: hotelData.hotelTypeId,
-          mainPhoto: hotelData.main_photo,
-          thumbnail: hotelData.thumbnail,
-          
-          // Enhanced amenities and facilities
-          amenities: hotelData.facilityIds || [],
-          accessibility: hotelData.accessibilityAttributes || {},
-          
-          // Additional details that might be available
-          checkInTime: hotelData.checkInTime || "3:00 PM",
-          checkOutTime: hotelData.checkOutTime || "11:00 AM",
-          totalRooms: hotelData.totalRooms || "Not specified",
-          yearBuilt: hotelData.yearBuilt || "Not specified",
-          lastRenovated: hotelData.lastRenovated || "Not specified",
-          
-          // Contact information
-          phone: hotelData.phone || "Not available",
-          email: hotelData.email || "Not available",
-          website: hotelData.website || "Not available",
-          
-          // Policies
-          petPolicy: hotelData.petPolicy || "Contact hotel for pet policy",
-          smokingPolicy: hotelData.smokingPolicy || "Contact hotel for smoking policy",
+          airportCode: hotelData.airportCode,
           
           // Location details
-          distanceFromAirport: hotelData.distanceFromAirport || "Not specified",
-          distanceFromCityCenter: hotelData.distanceFromCityCenter || "Not specified",
+          location: hotelData.location,
           
-          // Images (if available in different format)
-          images: hotelData.images || [hotelData.main_photo],
+          // Images
+          mainPhoto: hotelData.main_photo,
+          thumbnail: hotelData.thumbnail,
+          images: hotelData.hotelImages || [],
           
-          // Additional metadata
-          deletedAt: hotelData.deletedAt,
-          createdAt: hotelData.createdAt,
-          updatedAt: hotelData.updatedAt
+          // Check-in/out times
+          checkinCheckoutTimes: hotelData.checkinCheckoutTimes || {
+            checkin: "3:00 PM",
+            checkout: "11:00 AM",
+            checkinStart: "3:00 PM"
+          },
+          
+          // Facilities and amenities
+          facilities: hotelData.facilities || [],
+          hotelFacilities: hotelData.hotelFacilities || [],
+          
+          // Room information
+          rooms: hotelData.rooms || [],
+          
+          // Contact information
+          phone: hotelData.phone || "",
+          fax: hotelData.fax || "",
+          email: hotelData.email || "",
+          
+          // Policies
+          policies: hotelData.policies || [],
+          childAllowed: hotelData.childAllowed,
+          petsAllowed: hotelData.petsAllowed,
+          parking: hotelData.parking || "",
+          groupRoomMin: hotelData.groupRoomMin || 0,
+          
+          // Sentiment analysis (if available)
+          sentimentAnalysis: hotelData.sentiment_analysis || null,
+          sentimentUpdatedAt: hotelData.sentiment_updated_at || null
         };
         
         console.log("Successfully returning enhanced hotel details");

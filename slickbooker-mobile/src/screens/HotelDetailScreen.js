@@ -203,26 +203,6 @@ const HotelDetailScreen = ({ route, navigation }) => {
             <Text style={styles.address}>{hotel.address}</Text>
           </View>
 
-          {hotel.description && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About This Hotel</Text>
-              <Text style={styles.description}>{hotel.description}</Text>
-            </View>
-          )}
-
-          {hotel.amenities && hotel.amenities.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Amenities</Text>
-              <View style={styles.amenitiesGrid}>
-                {hotel.amenities.map((amenity, index) => (
-                  <View key={index} style={styles.amenityItem}>
-                    <Text style={styles.amenityText}>• {amenity}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
           {/* Enhanced Hotel Information */}
           {hotelDetails && (
             <>
@@ -230,123 +210,237 @@ const HotelDetailScreen = ({ route, navigation }) => {
               {hotelDetails.description && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>About This Hotel</Text>
-                  <Text style={styles.description}>{hotelDetails.description}</Text>
+                  <Text style={styles.description}>{hotelDetails.description.replace(/<[^>]*>/g, '')}</Text>
                 </View>
               )}
 
-              {/* Contact Information */}
+              {/* Hotel Images Gallery */}
+              {hotelDetails.images && hotelDetails.images.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Hotel Gallery</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageGallery}>
+                    {hotelDetails.images.map((image, index) => (
+                      <Image
+                        key={index}
+                        source={{ uri: image.url || image.urlHd || image }}
+                        style={styles.galleryImage}
+                        resizeMode="cover"
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Hotel Facilities */}
+              {hotelDetails.hotelFacilities && hotelDetails.hotelFacilities.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Hotel Facilities</Text>
+                  <View style={styles.facilitiesGrid}>
+                    {hotelDetails.hotelFacilities.map((facility, index) => (
+                      <View key={index} style={styles.facilityItem}>
+                        <Text style={styles.facilityText}>• {facility}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Check-in/Check-out Information */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Contact Information</Text>
+                <Text style={styles.sectionTitle}>Check-in & Check-out</Text>
                 <View style={styles.infoGrid}>
-                  {hotelDetails.phone && hotelDetails.phone !== 'Not available' && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Check-in:</Text>
+                    <Text style={styles.infoValue}>{hotelDetails.checkinCheckoutTimes?.checkin || '3:00 PM'}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Check-out:</Text>
+                    <Text style={styles.infoValue}>{hotelDetails.checkinCheckoutTimes?.checkout || '11:00 AM'}</Text>
+                  </View>
+                  {hotelDetails.checkinCheckoutTimes?.checkinStart && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Phone:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.phone}</Text>
-                    </View>
-                  )}
-                  {hotelDetails.email && hotelDetails.email !== 'Not available' && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Email:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.email}</Text>
-                    </View>
-                  )}
-                  {hotelDetails.website && hotelDetails.website !== 'Not available' && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Website:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.website}</Text>
+                      <Text style={styles.infoLabel}>Check-in starts:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.checkinCheckoutTimes.checkinStart}</Text>
                     </View>
                   )}
                 </View>
               </View>
 
-              {/* Hotel Policies */}
+              {/* Hotel Information */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Hotel Policies</Text>
+                <Text style={styles.sectionTitle}>Hotel Information</Text>
                 <View style={styles.infoGrid}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Check-in:</Text>
-                    <Text style={styles.infoValue}>{hotelDetails.checkInTime}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Check-out:</Text>
-                    <Text style={styles.infoValue}>{hotelDetails.checkOutTime}</Text>
-                  </View>
-                  {hotelDetails.petPolicy && (
+                  {hotelDetails.chain && hotelDetails.chain !== 'Not Available' && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Pet Policy:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.petPolicy}</Text>
+                      <Text style={styles.infoLabel}>Chain:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.chain}</Text>
                     </View>
                   )}
-                  {hotelDetails.smokingPolicy && (
+                  {hotelDetails.starRating && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Smoking Policy:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.smokingPolicy}</Text>
+                      <Text style={styles.infoLabel}>Star Rating:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.starRating} stars</Text>
+                    </View>
+                  )}
+                  {hotelDetails.hotelType && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Hotel Type:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.hotelType}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.airportCode && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Nearest Airport:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.airportCode}</Text>
                     </View>
                   )}
                 </View>
               </View>
 
               {/* Location Details */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Location Details</Text>
-                <View style={styles.infoGrid}>
-                  {hotelDetails.distanceFromAirport && hotelDetails.distanceFromAirport !== 'Not specified' && (
+              {hotelDetails.location && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Location</Text>
+                  <View style={styles.infoGrid}>
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Airport Distance:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.distanceFromAirport}</Text>
+                      <Text style={styles.infoLabel}>Address:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.address}</Text>
                     </View>
-                  )}
-                  {hotelDetails.distanceFromCityCenter && hotelDetails.distanceFromCityCenter !== 'Not specified' && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>City Center:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.distanceFromCityCenter}</Text>
+                      <Text style={styles.infoLabel}>City:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.city}</Text>
                     </View>
-                  )}
-                  {hotelDetails.totalRooms && hotelDetails.totalRooms !== 'Not specified' && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Total Rooms:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.totalRooms}</Text>
+                      <Text style={styles.infoLabel}>Country:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.country}</Text>
                     </View>
-                  )}
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Coordinates:</Text>
+                      <Text style={styles.infoValue}>
+                        {hotelDetails.location.latitude}, {hotelDetails.location.longitude}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* Hotel History */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Hotel Information</Text>
-                <View style={styles.infoGrid}>
-                  {hotelDetails.yearBuilt && hotelDetails.yearBuilt !== 'Not specified' && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Year Built:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.yearBuilt}</Text>
+              {/* Hotel Policies */}
+              {hotelDetails.policies && hotelDetails.policies.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Hotel Policies</Text>
+                  {hotelDetails.policies.map((policy, index) => (
+                    <View key={index} style={styles.policyItem}>
+                      <Text style={styles.policyTitle}>{policy.name}</Text>
+                      <Text style={styles.policyDescription}>{policy.description}</Text>
                     </View>
-                  )}
-                  {hotelDetails.lastRenovated && hotelDetails.lastRenovated !== 'Not specified' && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Last Renovated:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.lastRenovated}</Text>
-                    </View>
-                  )}
-                  {hotelDetails.chain && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Chain:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.chain}</Text>
-                    </View>
-                  )}
-                  {hotelDetails.rating && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Guest Rating:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.rating}/10</Text>
-                    </View>
-                  )}
-                  {hotelDetails.reviewCount && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Reviews:</Text>
-                      <Text style={styles.infoValue}>{hotelDetails.reviewCount} reviews</Text>
-                    </View>
-                  )}
+                  ))}
                 </View>
-              </View>
+              )}
+
+              {/* Room Types */}
+              {hotelDetails.rooms && hotelDetails.rooms.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Room Types</Text>
+                  {hotelDetails.rooms.map((room, index) => (
+                    <View key={index} style={styles.roomCard}>
+                      <Text style={styles.roomName}>{room.roomName}</Text>
+                      <Text style={styles.roomDescription}>{room.description}</Text>
+                      
+                      <View style={styles.roomDetails}>
+                        <View style={styles.roomInfo}>
+                          <Text style={styles.roomInfoLabel}>Size:</Text>
+                          <Text style={styles.roomInfoValue}>
+                            {room.roomSizeSquare} {room.roomSizeUnit}
+                          </Text>
+                        </View>
+                        <View style={styles.roomInfo}>
+                          <Text style={styles.roomInfoLabel}>Max Occupancy:</Text>
+                          <Text style={styles.roomInfoValue}>
+                            {room.maxAdults} adults, {room.maxChildren} children
+                          </Text>
+                        </View>
+                      </View>
+
+                      {room.bedTypes && room.bedTypes.length > 0 && (
+                        <View style={styles.bedTypes}>
+                          <Text style={styles.bedTypesLabel}>Bed Configuration:</Text>
+                          {room.bedTypes.map((bed, bedIndex) => (
+                            <Text key={bedIndex} style={styles.bedType}>
+                              {bed.quantity} x {bed.bedType} ({bed.bedSize})
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+
+                      {room.roomAmenities && room.roomAmenities.length > 0 && (
+                        <View style={styles.roomAmenities}>
+                          <Text style={styles.roomAmenitiesLabel}>Room Amenities:</Text>
+                          <View style={styles.roomAmenitiesGrid}>
+                            {room.roomAmenities.slice(0, 6).map((amenity, amenityIndex) => (
+                              <Text key={amenityIndex} style={styles.roomAmenity}>
+                                • {amenity.name}
+                              </Text>
+                            ))}
+                            {room.roomAmenities.length > 6 && (
+                              <Text style={styles.moreAmenities}>
+                                +{room.roomAmenities.length - 6} more amenities
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      )}
+
+                      {room.photos && room.photos.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roomPhotos}>
+                          {room.photos.map((photo, photoIndex) => (
+                            <Image
+                              key={photoIndex}
+                              source={{ uri: photo.url || photo.hd_url }}
+                              style={styles.roomPhoto}
+                              resizeMode="cover"
+                            />
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Important Information */}
+              {hotelDetails.importantInformation && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Important Information</Text>
+                  <Text style={styles.importantInfo}>{hotelDetails.importantInformation}</Text>
+                </View>
+              )}
+
+              {/* Contact Information */}
+              {(hotelDetails.phone || hotelDetails.email || hotelDetails.fax) && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Contact Information</Text>
+                  <View style={styles.infoGrid}>
+                    {hotelDetails.phone && (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Phone:</Text>
+                        <Text style={styles.infoValue}>{hotelDetails.phone}</Text>
+                      </View>
+                    )}
+                    {hotelDetails.email && (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Email:</Text>
+                        <Text style={styles.infoValue}>{hotelDetails.email}</Text>
+                      </View>
+                    )}
+                    {hotelDetails.fax && (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Fax:</Text>
+                        <Text style={styles.infoValue}>{hotelDetails.fax}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
             </>
           )}
 
@@ -783,6 +877,141 @@ const styles = StyleSheet.create({
     color: theme.colors.surface,
     fontSize: 14,
     fontWeight: '600',
+  },
+  // New styles for enhanced hotel details
+  imageGallery: {
+    marginTop: theme.spacing.sm,
+  },
+  galleryImage: {
+    width: 200,
+    height: 150,
+    borderRadius: theme.borderRadius.medium,
+    marginRight: theme.spacing.sm,
+  },
+  facilitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: theme.spacing.sm,
+  },
+  facilityItem: {
+    width: '50%',
+    paddingVertical: theme.spacing.xs,
+  },
+  facilityText: {
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  policyItem: {
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+    ...theme.shadows.small,
+  },
+  policyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  policyDescription: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+  },
+  roomCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  roomName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  roomDescription: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+    marginBottom: theme.spacing.sm,
+  },
+  roomDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
+  roomInfo: {
+    flex: 1,
+  },
+  roomInfoLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  roomInfoValue: {
+    fontSize: 14,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  bedTypes: {
+    marginBottom: theme.spacing.sm,
+  },
+  bedTypesLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  bedType: {
+    fontSize: 14,
+    color: theme.colors.text,
+    marginLeft: theme.spacing.sm,
+  },
+  roomAmenities: {
+    marginBottom: theme.spacing.sm,
+  },
+  roomAmenitiesLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  roomAmenitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  roomAmenity: {
+    fontSize: 12,
+    color: theme.colors.text,
+    width: '50%',
+    marginBottom: 2,
+  },
+  moreAmenities: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontStyle: 'italic',
+  },
+  roomPhotos: {
+    marginTop: theme.spacing.sm,
+  },
+  roomPhoto: {
+    width: 120,
+    height: 90,
+    borderRadius: theme.borderRadius.small,
+    marginRight: theme.spacing.sm,
+  },
+  importantInfo: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+    backgroundColor: '#fff3cd',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
   },
 });
 
