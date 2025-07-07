@@ -10,19 +10,23 @@ import {
   SafeAreaView,
   ActionSheetIOS,
   Platform,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { Calendar } from 'react-native-calendars';
 import { theme } from '../styles/theme';
 import { searchHotels, getFunnyResponse } from '../services/api';
 
 const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [checkInDate, setCheckInDate] = useState(new Date());
+  const [checkOutDate, setCheckOutDate] = useState(new Date());
   const [guests, setGuests] = useState('2');
   const [environment, setEnvironment] = useState('sandbox');
   const [funnyResponse, setFunnyResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCheckInCalendar, setShowCheckInCalendar] = useState(false);
+  const [showCheckOutCalendar, setShowCheckOutCalendar] = useState(false);
 
   useEffect(() => {
     // Set default dates to 3 months from now
@@ -30,13 +34,160 @@ const HomeScreen = ({ navigation }) => {
     const threeMonthsLater = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
     const fourMonthsLater = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate() + 3);
     
-    setCheckIn(threeMonthsLater.toISOString().split('T')[0]);
-    setCheckOut(fourMonthsLater.toISOString().split('T')[0]);
+    setCheckInDate(threeMonthsLater);
+    setCheckOutDate(fourMonthsLater);
   }, []);
 
+  const formatDate = (date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatDisplayDate = (date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const handleCheckInDateSelect = (day) => {
+    const selectedDate = new Date(day.dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      Alert.alert('Invalid Date', 'Check-in date cannot be in the past');
+      return;
+    }
+    
+    setCheckInDate(selectedDate);
+    setShowCheckInCalendar(false);
+    
+    // If check-out is before or same as new check-in, update check-out to next day
+    if (checkOutDate <= selectedDate) {
+      const nextDay = new Date(selectedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setCheckOutDate(nextDay);
+    }
+  };
+
+  const handleCheckOutDateSelect = (day) => {
+    const selectedDate = new Date(day.dateString);
+    
+    // Ensure check-out is after check-in
+    if (selectedDate > checkInDate) {
+      setCheckOutDate(selectedDate);
+      setShowCheckOutCalendar(false);
+    } else {
+      Alert.alert('Invalid Date', 'Check-out date must be after check-in date');
+    }
+  };
+
+  const getMarkedDates = (isCheckOut = false) => {
+    const today = formatDate(new Date());
+    const checkIn = formatDate(checkInDate);
+    const checkOut = formatDate(checkOutDate);
+    
+    let marked = {};
+    
+    // Mark past dates as disabled
+    const currentDate = new Date();
+    for (let i = 1; i <= 30; i++) {
+      const pastDate = new Date(currentDate);
+      pastDate.setDate(pastDate.getDate() - i);
+      const pastDateString = formatDate(pastDate);
+      marked[pastDateString] = { disabled: true, disableTouchEvent: true };
+    }
+    
+    if (isCheckOut) {
+      // For check-out calendar, disable dates before check-in
+      const checkInDateObj = new Date(checkInDate);
+      for (let i = 0; i <= 365; i++) {
+        const beforeCheckIn = new Date(checkInDateObj);
+        beforeCheckIn.setDate(beforeCheckIn.getDate() - i);
+        if (beforeCheckIn < new Date()) break;
+        const beforeCheckInString = formatDate(beforeCheckIn);
+        marked[beforeCheckInString] = { disabled: true, disableTouchEvent: true };
+      }
+      
+      // Mark check-out date
+      marked[checkOut] = {
+        selected: true,
+        selectedColor: theme.colors.primary,
+        selectedTextColor: '#FFFFFF'
+      };
+    } else {
+      // Mark check-in date
+      marked[checkIn] = {
+        selected: true,
+        selectedColor: theme.colors.primary,
+        selectedTextColor: '#FFFFFF'
+      };
+    }
+    
+    return marked;
+  };
+
+  const renderCalendarModal = (visible, onClose, onSelect, title, isCheckOut = false) => (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.calendarContainer}>
+          <View style={styles.calendarHeader}>
+            <Text style={styles.calendarTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Calendar
+            onDayPress={onSelect}
+            markedDates={getMarkedDates(isCheckOut)}
+            theme={{
+              backgroundColor: '#ffffff',
+              calendarBackground: '#ffffff',
+              textSectionTitleColor: theme.colors.primary,
+              selectedDayBackgroundColor: theme.colors.primary,
+              selectedDayTextColor: '#ffffff',
+              todayTextColor: theme.colors.primary,
+              dayTextColor: '#2d4150',
+              textDisabledColor: '#d9e1e8',
+              dotColor: theme.colors.primary,
+              selectedDotColor: '#ffffff',
+              arrowColor: theme.colors.primary,
+              disabledArrowColor: '#d9e1e8',
+              monthTextColor: theme.colors.primary,
+              indicatorColor: theme.colors.primary,
+              textDayFontFamily: 'System',
+              textMonthFontFamily: 'System',
+              textDayHeaderFontFamily: 'System',
+              textDayFontWeight: '400',
+              textMonthFontWeight: 'bold',
+              textDayHeaderFontWeight: '600',
+              textDayFontSize: 16,
+              textMonthFontSize: 18,
+              textDayHeaderFontSize: 14
+            }}
+            minDate={isCheckOut ? formatDate(new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000)) : formatDate(new Date())}
+            maxDate={formatDate(new Date(new Date().getFullYear() + 2, 11, 31))}
+          />
+          
+          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const handleSearch = async () => {
-    if (!location || !checkIn || !checkOut) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!location) {
+      Alert.alert('Error', 'Please enter a location');
       return;
     }
 
@@ -44,8 +195,8 @@ const HomeScreen = ({ navigation }) => {
     try {
       const response = await searchHotels({
         location,
-        checkIn,
-        checkOut,
+        checkIn: formatDate(checkInDate),
+        checkOut: formatDate(checkOutDate),
         guests: parseInt(guests),
         environment,
       });
@@ -53,7 +204,13 @@ const HomeScreen = ({ navigation }) => {
       if (response.hotels && response.hotels.length > 0) {
         navigation.navigate('SearchResults', {
           hotels: response.hotels,
-          searchParams: { location, checkIn, checkOut, guests, environment },
+          searchParams: { 
+            location, 
+            checkIn: formatDate(checkInDate), 
+            checkOut: formatDate(checkOutDate), 
+            guests, 
+            environment 
+          },
         });
       } else {
         Alert.alert('No Results', 'No hotels found for your search criteria');
@@ -153,24 +310,20 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.row}>
             <View style={[styles.inputGroup, styles.halfWidth]}>
               <Text style={styles.label}>Check-in</Text>
-              <TextInput
-                style={styles.input}
-                value={checkIn}
-                onChangeText={setCheckIn}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.colors.textSecondary}
-              />
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowCheckInCalendar(true)}>
+                <Text style={styles.dateButtonText}>
+                  {formatDisplayDate(checkInDate)}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={[styles.inputGroup, styles.halfWidth]}>
               <Text style={styles.label}>Check-out</Text>
-              <TextInput
-                style={styles.input}
-                value={checkOut}
-                onChangeText={setCheckOut}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.colors.textSecondary}
-              />
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowCheckOutCalendar(true)}>
+                <Text style={styles.dateButtonText}>
+                  {formatDisplayDate(checkOutDate)}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -223,6 +376,14 @@ const HomeScreen = ({ navigation }) => {
           ) : null}
         </View>
       </ScrollView>
+
+      {showCheckInCalendar && (
+        renderCalendarModal(true, () => setShowCheckInCalendar(false), handleCheckInDateSelect, 'Select Check-in Date', false)
+      )}
+
+      {showCheckOutCalendar && (
+        renderCalendarModal(true, () => setShowCheckOutCalendar(false), handleCheckOutDateSelect, 'Select Check-out Date', true)
+      )}
     </SafeAreaView>
   );
 };
@@ -298,6 +459,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
   },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    height: 50,
+    justifyContent: 'center',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
   button: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.medium,
@@ -331,6 +505,58 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+     calendarContainer: {
+     backgroundColor: theme.colors.surface,
+     borderRadius: theme.borderRadius.large,
+     padding: theme.spacing.lg,
+     margin: theme.spacing.lg,
+     width: '90%',
+     maxHeight: '80%',
+     ...theme.shadows.large,
+     elevation: 10,
+   },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  calendarTitle: {
+    ...theme.typography.h2,
+    color: theme.colors.primary,
+  },
+     closeButton: {
+     padding: theme.spacing.sm,
+     borderRadius: 20,
+     backgroundColor: theme.colors.background,
+     width: 40,
+     height: 40,
+     justifyContent: 'center',
+     alignItems: 'center',
+   },
+   closeButtonText: {
+     fontSize: 18,
+     fontWeight: 'bold',
+     color: theme.colors.textSecondary,
+   },
+  cancelButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+  },
+  cancelButtonText: {
+    color: theme.colors.surface,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
