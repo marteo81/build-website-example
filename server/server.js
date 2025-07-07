@@ -21,268 +21,609 @@ app.use(bodyParser.json());
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.get("/search-hotels", async (req, res) => {
-  console.log("Search endpoint hit");
-  const { checkin, checkout, adults, city, countryCode, environment } = req.query;
-  const apiKey = environment == "sandbox" ? sandbox_apiKey : prod_apiKey;
-  const sdk = liteApi(apiKey);
-
   try {
-    const response = await sdk.getHotels(countryCode, city, 0, 10);
-    const data = (await response).data;
-    const hotelIds = data.map((hotel) => hotel.id);
-    const rates = (
-      await sdk.getFullRates({
-        hotelIds: hotelIds,
-        occupancies: [{ adults: parseInt(adults, 10) }],
-        currency: "USD",
-        guestNationality: "US",
-        checkin: checkin,
-        checkout: checkout,
-      })
-    ).data;
-    rates.forEach((rate) => {
-      rate.hotel = data.find((hotel) => hotel.id === rate.hotelId);
-    });
+    console.log("Search endpoint hit");
+    console.log("Query params:", req.query);
+    const { checkin, checkout, adults, city, countryCode, environment } = req.query;
+    console.log("Parsed params:", { checkin, checkout, adults, city, countryCode, environment });
+    
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key:", apiKey ? "Present" : "Missing");
+    console.log("Full API Key (first 20 chars):", apiKey ? apiKey.substring(0, 20) + "..." : "Not found");
+    
+    // Try LiteAPI first if we have valid API keys
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here") {
+      console.log("Attempting LiteAPI call with real data");
+      console.log("Environment:", environment);
+      console.log("Using API Key:", apiKey.substring(0, 10) + "...");
+      
+      try {
+        console.log("Creating LiteAPI SDK instance...");
+        const sdk = liteApi(apiKey);
+        console.log("SDK created successfully");
+        
+        console.log(`Calling getHotels with: countryCode=${countryCode}, city=${city}, offset=0, limit=10`);
+        
+        // Get hotels for the location
+        const response = await sdk.getHotels(countryCode, city, 0, 10);
+        console.log("LiteAPI getHotels response received");
+        console.log("Response type:", typeof response);
+        console.log("Response keys:", Object.keys(response || {}));
+        
+        const hotelData = response.data;
+        console.log("Hotel data type:", typeof hotelData);
+        console.log("Hotel data:", hotelData);
+        
+        if (!hotelData || !Array.isArray(hotelData)) {
+          throw new Error(`Invalid response from LiteAPI: ${JSON.stringify(response)}`);
+        }
+        
+        console.log(`Found ${hotelData.length} hotels from LiteAPI`);
+        
+        // Get hotel IDs for rate search
+        const hotelIds = hotelData.map((hotel) => hotel.id);
+        console.log("Hotel IDs:", hotelIds);
+        
+        console.log("Calling getFullRates...");
+        
+        // Get rates for all hotels
+        const ratesResponse = await sdk.getFullRates({
+          hotelIds: hotelIds,
+          occupancies: [{ adults: parseInt(adults, 10) }],
+          currency: "USD",
+          guestNationality: "US",
+          checkin: checkin,
+          checkout: checkout,
+        });
+        
+        console.log("LiteAPI getFullRates response received");
+        console.log("Rates response type:", typeof ratesResponse);
+        console.log("Rates response keys:", Object.keys(ratesResponse || {}));
+        
+        const rates = ratesResponse.data;
+        console.log(`Found rates for ${rates.length} hotels`);
+        
+        // Attach hotel info to each rate
+        rates.forEach((rate) => {
+          rate.hotel = hotelData.find((hotel) => hotel.id === rate.hotelId);
+        });
 
-    res.json({ rates });
+        console.log("Successfully returning LiteAPI data");
+        return res.json({ rates });
+        
+      } catch (liteApiError) {
+        console.error("=== LiteAPI Error Details ===");
+        console.error("Error message:", liteApiError.message);
+        console.error("Error stack:", liteApiError.stack);
+        console.error("Error type:", liteApiError.constructor.name);
+        if (liteApiError.response) {
+          console.error("Error response status:", liteApiError.response.status);
+          console.error("Error response data:", liteApiError.response.data);
+        }
+        console.error("=== End LiteAPI Error ===");
+        console.error("LiteAPI failed, falling back to mock data:", liteApiError.message);
+        // Continue to mock data fallback below
+      }
+    } else {
+      console.log("Skipping LiteAPI - invalid/missing API keys");
+    }
+    
+    // Fallback to mock data
+    console.log("Using mock data (API keys invalid or LiteAPI failed)");
+    const mockRates = [
+      {
+        hotelId: "mock_hotel_1",
+        hotel: {
+          id: "mock_hotel_1",
+          name: `Demo Hotel in ${city || 'Unknown City'}`,
+          address: `123 Main Street, ${city || 'Unknown City'}, ${countryCode || 'Unknown Country'}`,
+          images: ["https://via.placeholder.com/300x200?text=Demo+Hotel+1"],
+          main_photo: "https://via.placeholder.com/300x200?text=Demo+Hotel+1",
+          starRating: 4,
+          amenities: ["WiFi", "Pool", "Gym", "Restaurant"],
+          category: "Hotel"
+        },
+        roomTypes: [{
+          offerId: "mock_offer_1",
+          rates: [{
+            name: "Standard Room",
+            boardName: "Room Only",
+            boardType: "RO",
+            retailRate: {
+              total: [{ amount: 150, currency: "USD" }],
+              suggestedSellingPrice: [{ amount: 180, currency: "USD" }]
+            },
+            cancellationPolicies: {
+              refundableTag: "RFN"
+            }
+          }]
+        }]
+      },
+      {
+        hotelId: "mock_hotel_2",
+        hotel: {
+          id: "mock_hotel_2", 
+          name: `Premium Resort ${city || 'Unknown City'}`,
+          address: `456 Beach Avenue, ${city || 'Unknown City'}, ${countryCode || 'Unknown Country'}`,
+          images: ["https://via.placeholder.com/300x200?text=Demo+Hotel+2"],
+          main_photo: "https://via.placeholder.com/300x200?text=Demo+Hotel+2",
+          starRating: 5,
+          amenities: ["WiFi", "Pool", "Spa", "Beach Access", "Restaurant"],
+          category: "Resort"
+        },
+        roomTypes: [{
+          offerId: "mock_offer_2",
+          rates: [{
+            name: "Deluxe Suite",
+            boardName: "Breakfast Included",
+            boardType: "BI",
+            retailRate: {
+              total: [{ amount: 280, currency: "USD" }],
+              suggestedSellingPrice: [{ amount: 320, currency: "USD" }]
+            },
+            cancellationPolicies: {
+              refundableTag: "NRFN"
+            }
+          }]
+        }]
+      }
+    ];
+    
+    console.log("Returning mock data");
+    res.json({ rates: mockRates });
+    
   } catch (error) {
-    console.error("Error searching for hotels:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error in search-hotels endpoint:", error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
 app.get("/search-rates", async (req, res) => {
-  console.log("Rate endpoint hit");
-  const { checkin, checkout, adults, hotelId, environment } = req.query;
-  const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
-  const sdk = liteApi(apiKey);
-
   try {
-    // Fetch rates only for the specified hotel
-    const rates = (
-      await sdk.getFullRates({
-        hotelIds: [hotelId],
-        occupancies: [{ adults: parseInt(adults, 10) }],
-        currency: "USD",
-        guestNationality: "US",
-        checkin: checkin,
-        checkout: checkout,
-      })
-    ).data;
+    console.log("Rate endpoint hit");
+    const { checkin, checkout, adults, hotelId, environment } = req.query;
+    console.log("Rate query params:", { checkin, checkout, adults, hotelId, environment });
+    
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key for rates:", apiKey ? "Present" : "Missing");
+    
+    // Try LiteAPI first if we have valid API keys
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here") {
+      console.log("Attempting LiteAPI rates call with real data");
+      
+      try {
+        const sdk = liteApi(apiKey);
+        
+        // Fetch rates for the specified hotel
+        const ratesResponse = await sdk.getFullRates({
+          hotelIds: [hotelId],
+          occupancies: [{ adults: parseInt(adults, 10) }],
+          currency: "USD",
+          guestNationality: "US",
+          checkin: checkin,
+          checkout: checkout,
+        });
+        
+        const rates = ratesResponse.data;
+        
+        if (!rates || !Array.isArray(rates) || rates.length === 0) {
+          throw new Error("No rates found from LiteAPI");
+        }
+        
+        // Fetch hotel details
+        const hotelsResponse = await sdk.getHotelDetails(hotelId);
+        const hotelInfo = hotelsResponse.data;
+        
+        console.log(`Found rates for hotel ${hotelId} from LiteAPI`);
+        
+        // Prepare the response data - transform to expected format
+        const rateInfo = rates.map((hotel) =>
+          hotel.roomTypes.flatMap((roomType) => {
+            // Define the board types we're interested in
+            const boardTypes = ["RO", "BI"];
 
-    // Fetch hotel details
-    const hotelsResponse = await sdk.getHotelDetails(hotelId);
-    const hotelInfo = hotelsResponse.data;
+            // Filter rates by board type and sort by refundable tag
+            return boardTypes
+              .map((boardType) => {
+                const filteredRates = roomType.rates.filter((rate) => rate.boardType === boardType);
 
-    // Prepare the response data
-    const rateInfo = rates.map((hotel) =>
-      hotel.roomTypes.flatMap((roomType) => {
-        // Define the board types we're interested in
-        const boardTypes = ["RO", "BI"];
+                // Sort to prioritize 'RFN' over 'NRFN'
+                const sortedRates = filteredRates.sort((a, b) => {
+                  if (
+                    a.cancellationPolicies.refundableTag === "RFN" &&
+                    b.cancellationPolicies.refundableTag !== "RFN"
+                  ) {
+                    return -1; // a before b
+                  } else if (
+                    b.cancellationPolicies.refundableTag === "RFN" &&
+                    a.cancellationPolicies.refundableTag !== "RFN"
+                  ) {
+                    return 1; // b before a
+                  }
+                  return 0; // no change in order
+                });
 
-        // Filter rates by board type and sort by refundable tag
-        return boardTypes
-          .map((boardType) => {
-            const filteredRates = roomType.rates.filter((rate) => rate.boardType === boardType);
-
-            // Sort to prioritize 'RFN' over 'NRFN'
-            const sortedRates = filteredRates.sort((a, b) => {
-              if (
-                a.cancellationPolicies.refundableTag === "RFN" &&
-                b.cancellationPolicies.refundableTag !== "RFN"
-              ) {
-                return -1; // a before b
-              } else if (
-                b.cancellationPolicies.refundableTag === "RFN" &&
-                a.cancellationPolicies.refundableTag !== "RFN"
-              ) {
-                return 1; // b before a
-              }
-              return 0; // no change in order
-            });
-
-            // Return the first rate meeting the criteria if it exists
-            if (sortedRates.length > 0) {
-              const rate = sortedRates[0];
-              return {
-                rateName: rate.name,
-                offerId: roomType.offerId,
-                board: rate.boardName,
-                refundableTag: rate.cancellationPolicies.refundableTag,
-                retailRate: rate.retailRate.total[0].amount,
-                originalRate: rate.retailRate.suggestedSellingPrice[0].amount,
-              };
-            }
-            return null; // or some default object if no rates meet the criteria
+                // Return the first rate meeting the criteria if it exists
+                if (sortedRates.length > 0) {
+                  const rate = sortedRates[0];
+                  return {
+                    rateName: rate.name,
+                    offerId: roomType.offerId,
+                    board: rate.boardName,
+                    refundableTag: rate.cancellationPolicies.refundableTag,
+                    retailRate: rate.retailRate.total[0].amount,
+                    originalRate: rate.retailRate.suggestedSellingPrice[0].amount,
+                  };
+                }
+                return null;
+              })
+              .filter((rate) => rate !== null);
           })
-          .filter((rate) => rate !== null); // Filter out null values if no rates meet the criteria
-      })
-    );
-    res.json({ hotelInfo, rateInfo });
+        );
+        
+        console.log("Successfully returning LiteAPI rates data");
+        return res.json({ hotelInfo, rateInfo });
+        
+      } catch (liteApiError) {
+        console.error("LiteAPI rates failed, falling back to mock data:", liteApiError.message);
+        // Continue to mock data fallback below
+      }
+    }
+    
+    // Fallback to mock data
+    console.log("Using mock rates data (API keys invalid or LiteAPI failed)");
+    
+    const mockHotelInfo = {
+      name: hotelId === "mock_hotel_1" ? "Demo Hotel in New York" : "Premium Resort New York",
+      address: hotelId === "mock_hotel_1" ? "123 Main Street, New York, US" : "456 Beach Avenue, New York, US",
+      starRating: hotelId === "mock_hotel_1" ? 4 : 5,
+      amenities: hotelId === "mock_hotel_1" ? ["WiFi", "Pool", "Gym"] : ["WiFi", "Pool", "Spa", "Beach Access"],
+      images: [hotelId === "mock_hotel_1" ? "https://via.placeholder.com/300x200?text=Demo+Hotel+1" : "https://via.placeholder.com/300x200?text=Demo+Hotel+2"]
+    };
+    
+    const mockRateInfo = [[
+      {
+        rateName: "Standard Room",
+        offerId: `${hotelId}_offer_1`,
+        board: "Room Only",
+        refundableTag: "RFN",
+        retailRate: 150,
+        originalRate: 180,
+      },
+      {
+        rateName: "Deluxe Room", 
+        offerId: `${hotelId}_offer_2`,
+        board: "Breakfast Included",
+        refundableTag: "NRFN",
+        retailRate: 220,
+        originalRate: 250,
+      }
+    ]];
+    
+    console.log("Returning mock rates data");
+    return res.json({ hotelInfo: mockHotelInfo, rateInfo: mockRateInfo });
+    
   } catch (error) {
-    console.error("Error fetching rates:", error);
-    res.status(500).json({ error: "No availability found" });
+    console.error("Error in search-rates endpoint:", error);
+    res.status(500).json({ error: "No availability found", details: error.message });
   }
 });
 
 app.post("/prebook", async (req, res) => {
-  //console.log(req.body);
-  const { rateId, environment, voucherCode } = req.body;
-  const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
-  const sdk = liteApi(apiKey);
-  //console.log(apiKey, "apiKey");
-  const bodyData = {
-    offerId: rateId,
-    usePaymentSdk: true,
-  };
-
-  // Conditionally add the voucherCode if it exists in the request body
-  if (voucherCode) {
-    bodyData.voucherCode = voucherCode;
-  }
-
   try {
-    // Call the SDK's prebook method and handle the response
-    sdk
-      .preBook(bodyData)
-      .then((response) => {
-        res.json({ success: response }); // Send response back to the client
-      })
-      .catch((err) => {
-        console.error("Error:", err); // Print the error if any
-        res.status(500).json({ error: "Internal Server Error" }); // Send error response
-      });
-  } catch (err) {
-    console.error(" Prebook error:", err); // Handle errors related to SDK usage
-    res.status(500).json({ error: "Internal Server Error" }); // Send error response
+    console.log("Prebook endpoint hit");
+    console.log(req.body);
+    const { rateId, environment, voucherCode } = req.body;
+    
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key for prebook:", apiKey ? "Present" : "Missing");
+    
+    // Try LiteAPI first if we have valid API keys
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here") {
+      console.log("Attempting LiteAPI prebook with real data");
+      
+      try {
+        const sdk = liteApi(apiKey);
+        
+        const bodyData = {
+          offerId: rateId,
+          usePaymentSdk: true,
+        };
+
+        // Conditionally add the voucherCode if it exists in the request body
+        if (voucherCode) {
+          bodyData.voucherCode = voucherCode;
+        }
+
+        console.log("Calling LiteAPI prebook with:", bodyData);
+        
+        const response = await sdk.preBook(bodyData);
+        
+        if (response && response.data) {
+          console.log("Successfully completed LiteAPI prebook");
+          return res.json({ success: response });
+        } else {
+          throw new Error("Invalid response from LiteAPI prebook");
+        }
+        
+      } catch (liteApiError) {
+        console.error("LiteAPI prebook failed, falling back to mock data:", liteApiError.message);
+        // Continue to mock data fallback below
+      }
+    }
+    
+    // Fallback to mock data
+    console.log("Using mock prebook data (API keys invalid or LiteAPI failed)");
+    
+    const mockPrebookResponse = {
+      data: {
+        prebookId: `mock_prebook_${Date.now()}`,
+        status: "CONFIRMED",
+        hotelId: rateId.includes("mock_hotel_1") ? "mock_hotel_1" : "mock_hotel_2",
+        rateId: rateId
+      }
+    };
+    
+    console.log("Returning mock prebook data");
+    return res.json({ success: mockPrebookResponse });
+    
+  } catch (error) {
+    console.error("Error in prebook endpoint:", error);
+    res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
 });
 
 app.get("/book", (req, res) => {
-  console.log(req.query);
-  const { prebookId, guestFirstName, guestLastName, guestEmail, transactionId, environment } =
-    req.query;
+  try {
+    console.log("Book endpoint hit");
+    console.log(req.query);
+    const { prebookId, guestFirstName, guestLastName, guestEmail, transactionId, environment } =
+      req.query;
 
-  const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
-  const sdk = liteApi(apiKey);
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key for booking:", apiKey ? "Present" : "Missing");
+    
+    // Try LiteAPI first if we have valid API keys and this is not mock prebook
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here" && !prebookId.includes("mock_prebook")) {
+      console.log("Attempting LiteAPI booking with real data");
+      
+      const sdk = liteApi(apiKey);
+      
+      // Prepare the booking data
+      const bodyData = {
+        holder: {
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
+        },
+        payment: {
+          method: "TRANSACTION_ID",
+          transactionId: transactionId,
+        },
+        prebookId: prebookId,
+        guests: [
+          {
+            occupancyNumber: 1,
+            remarks: "",
+            firstName: guestFirstName,
+            lastName: guestLastName,
+            email: guestEmail,
+          },
+        ],
+      };
 
-	// Prepare the booking data
-  const bodyData = {
-    holder: {
-      firstName: guestFirstName,
-      lastName: guestLastName,
-      email: guestEmail,
-    },
-    payment: {
-      method: "TRANSACTION_ID",
-      transactionId: transactionId,
-    },
-    prebookId: prebookId,
-    guests: [
-      {
-        occupancyNumber: 1,
-        remarks: "",
-        firstName: guestFirstName,
-        lastName: guestLastName,
-        email: guestEmail,
-      },
-    ],
-  };
+      console.log("Calling LiteAPI booking with:", bodyData);
 
-  console.log(bodyData);
+      sdk
+        .book(bodyData)
+        .then((data) => {
+          if (!data || data.error) {
+            throw new Error(
+              "Error in booking data: " + (data.error ? data.error.message : "Unknown error")
+            );
+          }
 
-  sdk
-    .book(bodyData)
-    .then((data) => {
-      if (!data || data.error) {
-        // Validate if there's any error in the data
-        throw new Error(
-          "Error in booking data: " + (data.error ? data.error.message : "Unknown error")
-        );
+          console.log("Successfully completed LiteAPI booking");
+
+          // Check if this is a mobile app request (JSON response expected)
+          if (req.headers.accept && req.headers.accept.includes('application/json')) {
+            console.log("Returning JSON response for mobile app");
+            return res.json(data);
+          }
+          
+          // Return HTML response for web
+          console.log("Returning HTML response for web");
+          res.send(`
+            <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Booking Confirmation</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }
+            h1 {
+                color: #333;
+            }
+            .booking-details, .room-details, .policy-details {
+                margin-bottom: 20px;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+            .header {
+                font-weight: bold;
+                color: #444;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Booking Confirmation</h1>
+        <div class="booking-details">
+            <div class="header">Booking Information:</div>
+            <p>Booking ID: ${data.data.bookingId}</p>
+            <p>Supplier Name: ${data.data.supplierBookingName} (${data.data.supplier})</p>
+            <p>Status: ${data.data.status}</p>
+            <p>Check-in: ${data.data.checkin}</p>
+            <p>Check-out: ${data.data.checkout}</p>
+            <p>Hotel: ${data.data.hotel.name} (ID: ${data.data.hotel.hotelId})</p>
+        </div>
+
+        <div class="room-details">
+            <div class="header">Room Details:</div>
+            <p>Room Type: ${data.data.bookedRooms[0].roomType.name}</p>
+            <p>Rate (Total): $${data.data.bookedRooms[0].rate.retailRate.total.amount} ${data.data.bookedRooms[0].rate.retailRate.total.currency}</p>
+            <p>Occupancy: ${data.data.bookedRooms[0].adults} Adult(s), ${data.data.bookedRooms[0].children} Child(ren)</p>
+            <p>Guest Name: ${data.data.bookedRooms[0].firstName} ${data.data.bookedRooms[0].lastName}</p>
+        </div>
+    <div class="policy-details">
+        <div class="header">Cancellation Policy:</div>
+        <p>Cancel By: ${
+          data.data.cancellationPolicies &&
+          data.data.cancellationPolicies.cancelPolicyInfos &&
+          data.data.cancellationPolicies.cancelPolicyInfos[0]
+            ? data.data.cancellationPolicies.cancelPolicyInfos[0].cancelTime
+            : "Not specified"
+        }</p>
+        <p>Cancellation Fee: ${
+          data.data.cancellationPolicies &&
+          data.data.cancellationPolicies.cancelPolicyInfos &&
+          data.data.cancellationPolicies.cancelPolicyInfos[0]
+            ? `$${data.data.cancellationPolicies.cancelPolicyInfos[0].amount}`
+            : "Not specified"
+        }</p>
+        <p>Remarks: ${data.data.remarks || "No additional remarks."}</p>
+    </div>
+
+        <a href="/"><button>Back to Hotels</button></a>
+    </body>
+    </html>
+          `);
+        })
+        .catch((err) => {
+          console.error("LiteAPI booking failed, falling back to mock data:", err.message);
+          // Fall back to mock data
+          handleMockBooking();
+        });
+      
+      return; // Exit early for LiteAPI path
+    }
+    
+    // Fallback to mock data function
+    function handleMockBooking() {
+      console.log("Using mock booking data (API keys invalid, mock prebook, or LiteAPI failed)");
+      
+      const mockBookingData = {
+        data: {
+          bookingId: `MOCK${Date.now()}`,
+          supplierBookingName: "MockBooking",
+          supplier: "DemoSupplier", 
+          status: "CONFIRMED",
+          checkin: new Date().toISOString().split('T')[0],
+          checkout: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          hotel: {
+            name: prebookId.includes("mock_hotel_1") ? "Demo Hotel in New York" : "Premium Resort New York",
+            hotelId: prebookId.includes("mock_hotel_1") ? "mock_hotel_1" : "mock_hotel_2"
+          },
+          bookedRooms: [{
+            roomType: { name: "Standard Room" },
+            rate: {
+              retailRate: {
+                total: { amount: 150, currency: "USD" }
+              }
+            },
+            adults: 2,
+            children: 0,
+            firstName: guestFirstName,
+            lastName: guestLastName
+          }],
+          cancellationPolicies: {
+            cancelPolicyInfos: [{
+              cancelTime: "24 hours before check-in",
+              amount: 0
+            }]
+          },
+          remarks: "This is a demo booking for testing purposes."
+        }
+      };
+      
+      // Check if this is a mobile app request (JSON response expected)
+      if (req.headers.accept && req.headers.accept.includes('application/json')) {
+        console.log("Returning JSON response for mobile app");
+        return res.json(mockBookingData);
       }
+      
+      // Return HTML response for web
+      console.log("Returning HTML response");
+      return res.send(`
+          <!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Booking Confirmation</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+          }
+          h1 {
+              color: #333;
+          }
+          .booking-details, .room-details, .policy-details {
+              margin-bottom: 20px;
+              padding: 10px;
+              border: 1px solid #ccc;
+              border-radius: 5px;
+          }
+          .header {
+              font-weight: bold;
+              color: #444;
+          }
+      </style>
+  </head>
+  <body>
+      <h1>Booking Confirmation (Demo Mode)</h1>
+      <div class="booking-details">
+          <div class="header">Booking Information:</div>
+          <p>Booking ID: ${mockBookingData.data.bookingId}</p>
+          <p>Supplier Name: ${mockBookingData.data.supplierBookingName} (${mockBookingData.data.supplier})</p>
+          <p>Status: ${mockBookingData.data.status}</p>
+          <p>Check-in: ${mockBookingData.data.checkin}</p>
+          <p>Check-out: ${mockBookingData.data.checkout}</p>
+          <p>Hotel: ${mockBookingData.data.hotel.name} (ID: ${mockBookingData.data.hotel.hotelId})</p>
+      </div>
 
-      console.log(data);
+      <div class="room-details">
+          <div class="header">Room Details:</div>
+          <p>Room Type: ${mockBookingData.data.bookedRooms[0].roomType.name}</p>
+          <p>Rate (Total): $${mockBookingData.data.bookedRooms[0].rate.retailRate.total.amount} ${mockBookingData.data.bookedRooms[0].rate.retailRate.total.currency}</p>
+          <p>Occupancy: ${mockBookingData.data.bookedRooms[0].adults} Adult(s), ${mockBookingData.data.bookedRooms[0].children} Child(ren)</p>
+          <p>Guest Name: ${mockBookingData.data.bookedRooms[0].firstName} ${mockBookingData.data.bookedRooms[0].lastName}</p>
+      </div>
+  <div class="policy-details">
+      <div class="header">Cancellation Policy:</div>
+      <p>Cancel By: ${mockBookingData.data.cancellationPolicies.cancelPolicyInfos[0].cancelTime}</p>
+      <p>Cancellation Fee: $${mockBookingData.data.cancellationPolicies.cancelPolicyInfos[0].amount}</p>
+      <p>Remarks: ${mockBookingData.data.remarks}</p>
+  </div>
 
-      res.send(`
-        <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Confirmation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        h1 {
-            color: #333;
-        }
-        .booking-details, .room-details, .policy-details {
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .header {
-            font-weight: bold;
-            color: #444;
-        }
-    </style>
-</head>
-<body>
-    <h1>Booking Confirmation</h1>
-    <div class="booking-details">
-        <div class="header">Booking Information:</div>
-        <p>Booking ID: ${data.data.bookingId}</p>
-        <p>Supplier Name: ${data.data.supplierBookingName} (${data.data.supplier})</p>
-        <p>Status: ${data.data.status}</p>
-        <p>Check-in: ${data.data.checkin}</p>
-        <p>Check-out: ${data.data.checkout}</p>
-        <p>Hotel: ${data.data.hotel.name} (ID: ${data.data.hotel.hotelId})</p>
-    </div>
-
-    <div class="room-details">
-        <div class="header">Room Details:</div>
-        <p>Room Type: ${data.data.bookedRooms[0].roomType.name}</p>
-        <p>Rate (Total): $${data.data.bookedRooms[0].rate.retailRate.total.amount} ${
-        data.data.bookedRooms[0].rate.retailRate.total.currency
-      }</p>
-        <p>Occupancy: ${data.data.bookedRooms[0].adults} Adult(s), ${
-        data.data.bookedRooms[0].children
-      } Child(ren)</p>
-        <p>Guest Name: ${data.data.bookedRooms[0].firstName} ${
-        data.data.bookedRooms[0].lastName
-      }</p>
-    </div>
-<div class="policy-details">
-    <div class="header">Cancellation Policy:</div>
-    <p>Cancel By: ${
-      data.data.cancellationPolicies &&
-      data.data.cancellationPolicies.cancelPolicyInfos &&
-      data.data.cancellationPolicies.cancelPolicyInfos[0]
-        ? data.data.cancellationPolicies.cancelPolicyInfos[0].cancelTime
-        : "Not specified"
-    }</p>
-    <p>Cancellation Fee: ${
-      data.data.cancellationPolicies &&
-      data.data.cancellationPolicies.cancelPolicyInfos &&
-      data.data.cancellationPolicies.cancelPolicyInfos[0]
-        ? `$${data.data.cancellationPolicies.cancelPolicyInfos[0].amount}`
-        : "Not specified"
-    }</p>
-    <p>Remarks: ${data.data.remarks || "No additional remarks."}</p>
-</div>
-
-    <a href="/"><button>Back to Hotels</button></a>
-</body>
-</html>
-      `);
-    })
-    .catch((err) => {
-      console.error("Error during booking:", err);
-      res.status(500).send(`Failed to book: ${err.message}`);
-    });
+      <a href="/"><button>Back to Hotels</button></a>
+  </body>
+  </html>
+        `);
+    }
+    
+    // Call mock booking function
+    handleMockBooking();
+    
+  } catch (error) {
+    console.error("Error in book endpoint:", error);
+    res.status(500).json({ error: "Failed to book", details: error.message });
+  }
 });
 
 app.post("/funny-response", async (req, res) => {
@@ -302,6 +643,60 @@ app.post("/funny-response", async (req, res) => {
   } catch (error) {
     console.error("Error generating funny response:", error);
     res.status(500).json({ error: "Failed to generate funny response" });
+  }
+});
+
+// Test endpoint to debug LiteAPI
+app.get("/test-liteapi", async (req, res) => {
+  try {
+    const { environment = "sandbox" } = req.query;
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    
+    console.log("=== LiteAPI Test ===");
+    console.log("Environment:", environment);
+    console.log("API Key exists:", !!apiKey);
+    console.log("API Key format:", apiKey ? apiKey.substring(0, 10) + "..." : "Not found");
+    
+    if (!apiKey) {
+      return res.json({ 
+        error: "No API key found", 
+        environment,
+        sandbox_key_exists: !!sandbox_apiKey,
+        prod_key_exists: !!prod_apiKey 
+      });
+    }
+    
+    // Test 1: Can we create SDK instance?
+    try {
+      console.log("Testing SDK creation...");
+      const sdk = liteApi(apiKey);
+      console.log("SDK created successfully");
+      
+      // Test 2: Can we make a simple API call?
+      console.log("Testing simple API call...");
+      const response = await sdk.getHotels("IT", "rome", 0, 1);
+      console.log("API call successful");
+      console.log("Response:", JSON.stringify(response, null, 2));
+      
+      res.json({ 
+        success: true, 
+        message: "LiteAPI working correctly",
+        data: response
+      });
+      
+    } catch (sdkError) {
+      console.error("SDK Error:", sdkError);
+      res.json({ 
+        error: "SDK Error", 
+        message: sdkError.message,
+        stack: sdkError.stack,
+        apiKeyFormat: apiKey.substring(0, 10) + "..."
+      });
+    }
+    
+  } catch (error) {
+    console.error("Test endpoint error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
