@@ -51,12 +51,12 @@
 			<input type="text" class="input-bk" id="hotelId" value="lp3803c" />
 		</div>
 		<div class="input-group">
-			<label for="checkin">Check in (YYYY-MM-DD format)</label>
-			<input type="text" class="input-bk" id="checkin" value="2024-12-30" />
+			<label for="checkin">Check in</label>
+			<input type="date" class="input-bk" id="checkin" value="" />
 		</div>
 		<div class="input-group">
-			<label for="checkout">Check out (YYYY-MM-DD format)</label>
-			<input type="text" class="input-bk" id="checkout" value="2024-12-31" />
+			<label for="checkout">Check out</label>
+			<input type="date" class="input-bk" id="checkout" value="" />
 		</div>
 		<div class="input-group">
 			<label for="adults">Number of adult guests staying</label>
@@ -79,6 +79,35 @@
 	<div id="pe"></div>
     <div id="errorMessage"></div>
     <div id="paymentData"></div>
+	<script>
+		// Set default dates to 3 months in the future
+		function setDefaultDates() {
+			const today = new Date();
+			
+			// Calculate 3 months from today for check-in
+			const checkinDate = new Date(today);
+			checkinDate.setMonth(today.getMonth() + 3);
+			
+			// Calculate 3 months + 1 day from today for check-out
+			const checkoutDate = new Date(today);
+			checkoutDate.setMonth(today.getMonth() + 3);
+			checkoutDate.setDate(checkoutDate.getDate() + 1);
+			
+			// Format dates as YYYY-MM-DD
+			const formatDate = (date) => {
+				return date.getFullYear() + '-' + 
+					   String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+					   String(date.getDate()).padStart(2, '0');
+			};
+			
+			// Set the input values
+			document.getElementById('checkin').value = formatDate(checkinDate);
+			document.getElementById('checkout').value = formatDate(checkoutDate);
+		}
+		
+		// Run when page loads
+		document.addEventListener('DOMContentLoaded', setDefaultDates);
+	</script>
 	<script src="details.js"></script>
 	<footer>
 		&copy; 2024 SlickBooker. All rights reserved.
