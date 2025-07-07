@@ -10,16 +10,38 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { theme } from '../styles/theme';
+import { getHotelDetails } from '../services/api';
 
 const HotelDetailScreen = ({ route, navigation }) => {
   const { hotel, searchParams, rates } = route.params;
   const [selectedRate, setSelectedRate] = useState(null);
+  const [hotelDetails, setHotelDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(true);
 
   useEffect(() => {
     if (rates && rates.length > 0) {
       setSelectedRate(rates[0]);
     }
-  }, [rates]);
+    
+    // Fetch detailed hotel information
+    fetchHotelDetails();
+  }, []);
+
+  const fetchHotelDetails = async () => {
+    try {
+      setLoadingDetails(true);
+      const details = await getHotelDetails({
+        hotelId: hotel.id,
+        environment: searchParams.environment
+      });
+      setHotelDetails(details);
+    } catch (error) {
+      console.error('Error fetching hotel details:', error);
+      // Continue without detailed info
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
 
   const handleBookNow = () => {
     if (!selectedRate) {
@@ -98,6 +120,133 @@ const HotelDetailScreen = ({ route, navigation }) => {
                 ))}
               </View>
             </View>
+          )}
+
+          {/* Enhanced Hotel Information */}
+          {hotelDetails && (
+            <>
+              {/* Hotel Description */}
+              {hotelDetails.description && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>About This Hotel</Text>
+                  <Text style={styles.description}>{hotelDetails.description}</Text>
+                </View>
+              )}
+
+              {/* Contact Information */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Contact Information</Text>
+                <View style={styles.infoGrid}>
+                  {hotelDetails.phone && hotelDetails.phone !== 'Not available' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Phone:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.phone}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.email && hotelDetails.email !== 'Not available' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Email:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.email}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.website && hotelDetails.website !== 'Not available' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Website:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.website}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Hotel Policies */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hotel Policies</Text>
+                <View style={styles.infoGrid}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Check-in:</Text>
+                    <Text style={styles.infoValue}>{hotelDetails.checkInTime}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Check-out:</Text>
+                    <Text style={styles.infoValue}>{hotelDetails.checkOutTime}</Text>
+                  </View>
+                  {hotelDetails.petPolicy && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Pet Policy:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.petPolicy}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.smokingPolicy && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Smoking Policy:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.smokingPolicy}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Location Details */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Location Details</Text>
+                <View style={styles.infoGrid}>
+                  {hotelDetails.distanceFromAirport && hotelDetails.distanceFromAirport !== 'Not specified' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Airport Distance:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.distanceFromAirport}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.distanceFromCityCenter && hotelDetails.distanceFromCityCenter !== 'Not specified' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>City Center:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.distanceFromCityCenter}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.totalRooms && hotelDetails.totalRooms !== 'Not specified' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Total Rooms:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.totalRooms}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Hotel History */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hotel Information</Text>
+                <View style={styles.infoGrid}>
+                  {hotelDetails.yearBuilt && hotelDetails.yearBuilt !== 'Not specified' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Year Built:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.yearBuilt}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.lastRenovated && hotelDetails.lastRenovated !== 'Not specified' && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Last Renovated:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.lastRenovated}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.chain && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Chain:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.chain}</Text>
+                    </View>
+                  )}
+                  {hotelDetails.rating && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Guest Rating:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.rating}/10</Text>
+                    </View>
+                  )}
+                  {hotelDetails.reviewCount && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Reviews:</Text>
+                      <Text style={styles.infoValue}>{hotelDetails.reviewCount} reviews</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </>
           )}
 
           <View style={styles.section}>
@@ -187,7 +336,8 @@ const styles = StyleSheet.create({
   description: {
     ...theme.typography.body,
     lineHeight: 24,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
+    textAlign: 'justify',
   },
   amenitiesGrid: {
     flexDirection: 'row',
@@ -278,6 +428,30 @@ const styles = StyleSheet.create({
     color: theme.colors.surface,
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  infoGrid: {
+    marginTop: theme.spacing.sm,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.lightGray,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: theme.colors.text,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
   },
 });
 

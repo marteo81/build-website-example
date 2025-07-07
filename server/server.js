@@ -646,6 +646,161 @@ app.post("/funny-response", async (req, res) => {
   }
 });
 
+// New endpoint for comprehensive hotel details
+app.get("/hotel-details", async (req, res) => {
+  try {
+    console.log("Hotel details endpoint hit");
+    const { hotelId, environment } = req.query;
+    console.log("Hotel details query params:", { hotelId, environment });
+    
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key for hotel details:", apiKey ? "Present" : "Missing");
+    
+    // Try LiteAPI first if we have valid API keys
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here") {
+      console.log("Attempting LiteAPI hotel details call with real data");
+      
+      try {
+        const sdk = liteApi(apiKey);
+        
+        // Fetch comprehensive hotel details
+        const hotelResponse = await sdk.getHotelDetails(hotelId);
+        const hotelData = hotelResponse.data;
+        
+        console.log(`Found hotel details for ${hotelId} from LiteAPI`);
+        
+        // Transform and enhance the hotel data
+        const enhancedHotelDetails = {
+          id: hotelData.id,
+          name: hotelData.name,
+          description: hotelData.hotelDescription,
+          address: hotelData.address,
+          city: hotelData.city,
+          country: hotelData.country,
+          zip: hotelData.zip,
+          latitude: hotelData.latitude,
+          longitude: hotelData.longitude,
+          starRating: hotelData.stars,
+          rating: hotelData.rating,
+          reviewCount: hotelData.reviewCount,
+          currency: hotelData.currency,
+          chain: hotelData.chain,
+          chainId: hotelData.chainId,
+          hotelTypeId: hotelData.hotelTypeId,
+          mainPhoto: hotelData.main_photo,
+          thumbnail: hotelData.thumbnail,
+          
+          // Enhanced amenities and facilities
+          amenities: hotelData.facilityIds || [],
+          accessibility: hotelData.accessibilityAttributes || {},
+          
+          // Additional details that might be available
+          checkInTime: hotelData.checkInTime || "3:00 PM",
+          checkOutTime: hotelData.checkOutTime || "11:00 AM",
+          totalRooms: hotelData.totalRooms || "Not specified",
+          yearBuilt: hotelData.yearBuilt || "Not specified",
+          lastRenovated: hotelData.lastRenovated || "Not specified",
+          
+          // Contact information
+          phone: hotelData.phone || "Not available",
+          email: hotelData.email || "Not available",
+          website: hotelData.website || "Not available",
+          
+          // Policies
+          petPolicy: hotelData.petPolicy || "Contact hotel for pet policy",
+          smokingPolicy: hotelData.smokingPolicy || "Contact hotel for smoking policy",
+          
+          // Location details
+          distanceFromAirport: hotelData.distanceFromAirport || "Not specified",
+          distanceFromCityCenter: hotelData.distanceFromCityCenter || "Not specified",
+          
+          // Images (if available in different format)
+          images: hotelData.images || [hotelData.main_photo],
+          
+          // Additional metadata
+          deletedAt: hotelData.deletedAt,
+          createdAt: hotelData.createdAt,
+          updatedAt: hotelData.updatedAt
+        };
+        
+        console.log("Successfully returning enhanced hotel details");
+        return res.json({ hotelDetails: enhancedHotelDetails });
+        
+      } catch (liteApiError) {
+        console.error("LiteAPI hotel details failed, falling back to mock data:", liteApiError.message);
+        // Continue to mock data fallback below
+      }
+    }
+    
+    // Fallback to mock data
+    console.log("Using mock hotel details data (API keys invalid or LiteAPI failed)");
+    
+    const mockHotelDetails = {
+      id: hotelId,
+      name: hotelId === "mock_hotel_1" ? "Demo Hotel in New York" : "Premium Resort New York",
+      description: hotelId === "mock_hotel_1" 
+        ? "Experience luxury and comfort in the heart of New York City. Our hotel offers modern amenities, exceptional service, and convenient access to all major attractions."
+        : "Discover paradise at our premium beachfront resort. Enjoy stunning ocean views, world-class dining, and exclusive amenities for the ultimate vacation experience.",
+      address: hotelId === "mock_hotel_1" ? "123 Main Street, New York, NY 10001" : "456 Beach Avenue, New York, NY 10002",
+      city: "New York",
+      country: "US",
+      zip: hotelId === "mock_hotel_1" ? "10001" : "10002",
+      latitude: 40.7128,
+      longitude: -74.0060,
+      starRating: hotelId === "mock_hotel_1" ? 4 : 5,
+      rating: hotelId === "mock_hotel_1" ? 8.5 : 9.2,
+      reviewCount: hotelId === "mock_hotel_1" ? 1247 : 892,
+      currency: "USD",
+      chain: hotelId === "mock_hotel_1" ? "Demo Hotels" : "Premium Resorts",
+      chainId: hotelId === "mock_hotel_1" ? "demo_chain" : "premium_chain",
+      hotelTypeId: 204,
+      mainPhoto: hotelId === "mock_hotel_1" ? "https://via.placeholder.com/400x300?text=Demo+Hotel+1" : "https://via.placeholder.com/400x300?text=Premium+Resort",
+      thumbnail: hotelId === "mock_hotel_1" ? "https://via.placeholder.com/200x150?text=Demo+Hotel+1" : "https://via.placeholder.com/200x150?text=Premium+Resort",
+      
+      amenities: hotelId === "mock_hotel_1" 
+        ? ["WiFi", "Pool", "Gym", "Restaurant", "Bar", "Room Service", "Concierge", "Business Center", "Parking", "Air Conditioning"]
+        : ["WiFi", "Pool", "Spa", "Beach Access", "Restaurant", "Bar", "Room Service", "Concierge", "Fitness Center", "Tennis Court", "Golf Course", "Kids Club"],
+      
+      accessibility: {
+        petFriendly: hotelId === "mock_hotel_1" ? "Yes" : "No",
+        rampAngle: 0,
+        rampLength: 0,
+        entranceDoorWidth: 0,
+        roomMaxGuestsNumber: 4
+      },
+      
+      checkInTime: "3:00 PM",
+      checkOutTime: "11:00 AM",
+      totalRooms: hotelId === "mock_hotel_1" ? "150" : "200",
+      yearBuilt: hotelId === "mock_hotel_1" ? "2010" : "2015",
+      lastRenovated: hotelId === "mock_hotel_1" ? "2020" : "2022",
+      
+      phone: hotelId === "mock_hotel_1" ? "+1 (555) 123-4567" : "+1 (555) 987-6543",
+      email: hotelId === "mock_hotel_1" ? "info@demohotel.com" : "info@premiumresort.com",
+      website: hotelId === "mock_hotel_1" ? "www.demohotel.com" : "www.premiumresort.com",
+      
+      petPolicy: hotelId === "mock_hotel_1" ? "Pets allowed with $50 fee" : "No pets allowed",
+      smokingPolicy: "Designated smoking areas only",
+      
+      distanceFromAirport: hotelId === "mock_hotel_1" ? "15 miles" : "25 miles",
+      distanceFromCityCenter: hotelId === "mock_hotel_1" ? "0.5 miles" : "2 miles",
+      
+      images: [
+        hotelId === "mock_hotel_1" ? "https://via.placeholder.com/400x300?text=Demo+Hotel+1" : "https://via.placeholder.com/400x300?text=Premium+Resort",
+        hotelId === "mock_hotel_1" ? "https://via.placeholder.com/400x300?text=Demo+Hotel+2" : "https://via.placeholder.com/400x300?text=Premium+Resort+2",
+        hotelId === "mock_hotel_1" ? "https://via.placeholder.com/400x300?text=Demo+Hotel+3" : "https://via.placeholder.com/400x300?text=Premium+Resort+3"
+      ]
+    };
+    
+    console.log("Returning mock hotel details data");
+    return res.json({ hotelDetails: mockHotelDetails });
+    
+  } catch (error) {
+    console.error("Error in hotel-details endpoint:", error);
+    res.status(500).json({ error: "Failed to fetch hotel details", details: error.message });
+  }
+});
+
 // Test endpoint to debug LiteAPI
 app.get("/test-liteapi", async (req, res) => {
   try {

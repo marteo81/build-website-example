@@ -185,3 +185,24 @@ export const getFunnyResponse = async () => {
     throw error;
   }
 };
+
+export const getHotelDetails = async ({ hotelId, environment }) => {
+  try {
+    const params = new URLSearchParams({
+      hotelId: hotelId,
+      environment: environment
+    });
+    
+    const response = await fetch(`${API_BASE_URL}/hotel-details?${params}`);
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    return data.hotelDetails;
+  } catch (error) {
+    console.error('Error fetching hotel details:', error);
+    throw error;
+  }
+};
