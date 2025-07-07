@@ -206,3 +206,26 @@ export const getHotelDetails = async ({ hotelId, environment }) => {
     throw error;
   }
 };
+
+export const getHotelReviews = async ({ hotelId, environment, limit = 20, offset = 0 }) => {
+  try {
+    const params = new URLSearchParams({
+      hotelId: hotelId,
+      environment: environment,
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    
+    const response = await fetch(`${API_BASE_URL}/hotel-reviews?${params}`);
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching hotel reviews:', error);
+    throw error;
+  }
+};

@@ -801,6 +801,200 @@ app.get("/hotel-details", async (req, res) => {
   }
 });
 
+// New endpoint for hotel reviews
+app.get("/hotel-reviews", async (req, res) => {
+  try {
+    console.log("Hotel reviews endpoint hit");
+    const { hotelId, environment, limit = '20', offset = '0' } = req.query;
+    console.log("Hotel reviews query params:", { hotelId, environment, limit, offset });
+    
+    const apiKey = environment === "sandbox" ? sandbox_apiKey : prod_apiKey;
+    console.log("API Key for hotel reviews:", apiKey ? "Present" : "Missing");
+    
+    // Try LiteAPI first if we have valid API keys
+    if (apiKey && apiKey !== "your_production_liteapi_key_here" && apiKey !== "your_sandbox_liteapi_key_here") {
+      console.log("Attempting LiteAPI hotel reviews call with real data");
+      
+      try {
+        const axios = require('axios');
+        
+        const options = {
+          method: 'GET',
+          url: 'https://api.liteapi.travel/v3.0/data/reviews',
+          params: {
+            hotelId: hotelId,
+            limit: limit,
+            offset: offset,
+            timeout: '4',
+            getSentiment: 'false'
+          },
+          headers: {
+            accept: 'application/json',
+            'X-API-Key': apiKey
+          }
+        };
+        
+        const response = await axios.request(options);
+        const reviewsData = response.data;
+        
+        console.log(`Found ${reviewsData.data.length} reviews for hotel ${hotelId} from LiteAPI`);
+        
+        // Transform the reviews data for consistent mobile app consumption
+        const transformedReviews = {
+          reviews: reviewsData.data.map(review => ({
+            id: `${review.name}_${review.date}`,
+            reviewerName: review.name,
+            reviewerType: review.type,
+            country: review.country || 'Unknown',
+            rating: review.averageScore,
+            date: review.date,
+            headline: review.headline,
+            language: review.language || 'en',
+            pros: review.pros,
+            cons: review.cons,
+            source: review.source,
+            // Calculate days ago for better UX
+            daysAgo: Math.floor((new Date() - new Date(review.date)) / (1000 * 60 * 60 * 24))
+          })),
+          total: reviewsData.total,
+          averageRating: reviewsData.data.length > 0 
+            ? (reviewsData.data.reduce((sum, review) => sum + review.averageScore, 0) / reviewsData.data.length).toFixed(1)
+            : 0,
+          ratingDistribution: calculateRatingDistribution(reviewsData.data)
+        };
+        
+        console.log("Successfully returning hotel reviews");
+        return res.json(transformedReviews);
+        
+      } catch (liteApiError) {
+        console.error("LiteAPI hotel reviews failed, falling back to mock data:", liteApiError.message);
+        // Continue to mock data fallback below
+      }
+    }
+    
+    // Fallback to mock data
+    console.log("Using mock hotel reviews data (API keys invalid or LiteAPI failed)");
+    
+    const mockReviews = generateMockReviews(hotelId, parseInt(limit));
+    
+    console.log("Returning mock hotel reviews data");
+    return res.json(mockReviews);
+    
+  } catch (error) {
+    console.error("Error in hotel-reviews endpoint:", error);
+    res.status(500).json({ error: "Failed to fetch hotel reviews", details: error.message });
+  }
+});
+
+// Helper function to calculate rating distribution
+function calculateRatingDistribution(reviews) {
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  reviews.forEach(review => {
+    const rating = Math.round(review.averageScore);
+    if (rating >= 1 && rating <= 5) {
+      distribution[rating]++;
+    }
+  });
+  return distribution;
+}
+
+// Helper function to generate mock reviews
+function generateMockReviews(hotelId, limit) {
+  const mockReviewsData = [
+    {
+      reviewerName: "TravelExpert2024",
+      reviewerType: "Business",
+      country: "US",
+      rating: 5,
+      headline: "Exceptional stay in the heart of the city",
+      pros: "Perfect location, excellent service, and modern amenities. The staff went above and beyond to make our stay comfortable. Highly recommend for business travelers.",
+      cons: "None to mention",
+      source: "TripAdvisor",
+      daysAgo: 3
+    },
+    {
+      reviewerName: "FamilyVacation2024",
+      reviewerType: "Family",
+      country: "CA",
+      rating: 4,
+      headline: "Great family hotel with minor issues",
+      pros: "Kids loved the pool area, rooms were spacious, and location was perfect for sightseeing. Front desk staff was very helpful with recommendations.",
+      cons: "Wi-Fi was a bit slow, and the breakfast could use more variety",
+      source: "Booking.com",
+      daysAgo: 7
+    },
+    {
+      reviewerName: "CoupleGetaway",
+      reviewerType: "Couples",
+      country: "UK",
+      rating: 5,
+      headline: "Romantic weekend perfection",
+      pros: "Beautiful room with city views, excellent room service, and the concierge helped us get theater tickets. The hotel's restaurant was outstanding.",
+      cons: "",
+      source: "Expedia",
+      daysAgo: 12
+    },
+    {
+      reviewerName: "SoloTraveler88",
+      reviewerType: "Solo travel",
+      country: "AU",
+      rating: 4,
+      headline: "Safe and comfortable for solo travelers",
+      pros: "Felt very safe, great location near public transport, and the business center was useful. Room was clean and comfortable.",
+      cons: "Room was a bit small, but expected for city center location",
+      source: "Hotels.com",
+      daysAgo: 18
+    },
+    {
+      reviewerName: "BusinessTraveler123",
+      reviewerType: "Business",
+      country: "DE",
+      rating: 3,
+      headline: "Decent business hotel",
+      pros: "Good location for meetings, reliable Wi-Fi, and quick check-in/out process. Conference facilities were adequate.",
+      cons: "Room was dated and could use renovation. Air conditioning was noisy.",
+      source: "TripAdvisor",
+      daysAgo: 25
+    },
+    {
+      reviewerName: "VacationFamily",
+      reviewerType: "Family",
+      country: "FR",
+      rating: 2,
+      headline: "Disappointed with the experience",
+      pros: "Location was good and staff tried to be helpful",
+      cons: "Room was not clean upon arrival, elevator was broken during our stay, and the promised amenities were not available.",
+      source: "Booking.com",
+      daysAgo: 30
+    }
+  ];
+  
+  // Select reviews based on hotel ID to provide variety
+  const selectedReviews = hotelId === "mock_hotel_1" 
+    ? mockReviewsData.slice(0, Math.min(limit, mockReviewsData.length))
+    : mockReviewsData.slice(1, Math.min(limit + 1, mockReviewsData.length));
+  
+  // Add unique IDs and dates
+  const reviewsWithIds = selectedReviews.map((review, index) => ({
+    ...review,
+    id: `mock_review_${hotelId}_${index}`,
+    date: new Date(Date.now() - review.daysAgo * 24 * 60 * 60 * 1000).toISOString()
+  }));
+  
+  const averageRating = reviewsWithIds.length > 0 
+    ? (reviewsWithIds.reduce((sum, review) => sum + review.rating, 0) / reviewsWithIds.length).toFixed(1)
+    : 0;
+  
+  const ratingDistribution = calculateRatingDistribution(reviewsWithIds.map(r => ({ averageScore: r.rating })));
+  
+  return {
+    reviews: reviewsWithIds,
+    total: reviewsWithIds.length,
+    averageRating: averageRating,
+    ratingDistribution: ratingDistribution
+  };
+}
+
 // Test endpoint to debug LiteAPI
 app.get("/test-liteapi", async (req, res) => {
   try {

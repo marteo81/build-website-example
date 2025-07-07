@@ -10,7 +10,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { theme } from '../styles/theme';
-import { searchRates } from '../services/api';
+import { searchRates, getHotelReviews } from '../services/api';
 
 const SearchResultsScreen = ({ route, navigation }) => {
   const { hotels, searchParams } = route.params;
@@ -31,6 +31,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
             const cityCode = locationParts[0]?.trim();
             const countryCode = locationParts[1]?.trim() || 'US';
 
+            // Fetch rates
             const ratesResponse = await searchRates({
               hotelId: hotel.id,
               checkIn: searchParams.checkIn,
@@ -40,6 +41,18 @@ const SearchResultsScreen = ({ route, navigation }) => {
               cityCode,
               countryCode,
             });
+
+            // Fetch reviews
+            let reviewsData = null;
+            try {
+              reviewsData = await getHotelReviews({
+                hotelId: hotel.id,
+                environment: searchParams.environment,
+                limit: 5
+              });
+            } catch (reviewError) {
+              console.log(`Could not fetch reviews for hotel ${hotel.id}:`, reviewError.message);
+            }
 
             let minRate = null;
             if (ratesResponse.rates && ratesResponse.rates.length > 0) {
@@ -52,6 +65,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
               rates: ratesResponse.rates || [],
               minRate,
               currency: ratesResponse.rates?.[0]?.currency || 'USD',
+              reviews: reviewsData,
             };
           } catch (error) {
             console.log(`Error fetching rates for hotel ${hotel.id}:`, error.message);
@@ -60,6 +74,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
               rates: [],
               minRate: null,
               currency: 'USD',
+              reviews: null,
             };
           }
         })
@@ -71,6 +86,27 @@ const SearchResultsScreen = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<Text key={i} style={styles.star}>★</Text>);
+    }
+    
+    if (hasHalfStar) {
+      stars.push(<Text key="half" style={styles.star}>☆</Text>);
+    }
+    
+    const emptyStars = 5 - Math.ceil(rating);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(<Text key={`empty-${i}`} style={styles.emptyStar}>☆</Text>);
+    }
+    
+    return stars;
   };
 
   const renderHotel = ({ item: hotel }) => (
@@ -92,8 +128,22 @@ const SearchResultsScreen = ({ route, navigation }) => {
         <Text style={styles.hotelName}>{hotel.name}</Text>
         
         <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>⭐ {hotel.rating || 'N/A'}</Text>
-          <Text style={styles.category}>{hotel.category || ''}</Text>
+          {hotel.reviews && hotel.reviews.averageRating ? (
+            <View style={styles.reviewsInfo}>
+              <View style={styles.starsRow}>
+                {renderStars(parseFloat(hotel.reviews.averageRating))}
+                <Text style={styles.ratingNumber}>{hotel.reviews.averageRating}</Text>
+              </View>
+              <Text style={styles.reviewCount}>
+                ({hotel.reviews.total} {hotel.reviews.total === 1 ? 'review' : 'reviews'})
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.rating}>⭐ {hotel.rating || 'N/A'}</Text>
+              <Text style={styles.category}>{hotel.category || ''}</Text>
+            </>
+          )}
         </View>
         
         <Text style={styles.location}>{hotel.address}</Text>
@@ -235,6 +285,36 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
+  },
+  // Reviews styles for search results
+  reviewsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: theme.spacing.sm,
+  },
+  star: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    marginRight: 1,
+  },
+  emptyStar: {
+    fontSize: 12,
+    color: theme.colors.lightGray,
+    marginRight: 1,
+  },
+  ratingNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginLeft: theme.spacing.xs,
+  },
+  reviewCount: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
   },
 });
 

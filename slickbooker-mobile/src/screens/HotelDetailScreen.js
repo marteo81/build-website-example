@@ -10,21 +10,24 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { theme } from '../styles/theme';
-import { getHotelDetails } from '../services/api';
+import { getHotelDetails, getHotelReviews } from '../services/api';
 
 const HotelDetailScreen = ({ route, navigation }) => {
   const { hotel, searchParams, rates } = route.params;
   const [selectedRate, setSelectedRate] = useState(null);
   const [hotelDetails, setHotelDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
+  const [hotelReviews, setHotelReviews] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   useEffect(() => {
     if (rates && rates.length > 0) {
       setSelectedRate(rates[0]);
     }
     
-    // Fetch detailed hotel information
+    // Fetch detailed hotel information and reviews
     fetchHotelDetails();
+    fetchHotelReviews();
   }, []);
 
   const fetchHotelDetails = async () => {
@@ -43,6 +46,23 @@ const HotelDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const fetchHotelReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const reviews = await getHotelReviews({
+        hotelId: hotel.id,
+        environment: searchParams.environment,
+        limit: 10
+      });
+      setHotelReviews(reviews);
+    } catch (error) {
+      console.error('Error fetching hotel reviews:', error);
+      // Continue without reviews
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
   const handleBookNow = () => {
     if (!selectedRate) {
       Alert.alert('Error', 'Please select a rate to proceed with booking');
@@ -55,6 +75,73 @@ const HotelDetailScreen = ({ route, navigation }) => {
       searchParams,
     });
   };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<Text key={i} style={styles.star}>★</Text>);
+    }
+    
+    if (hasHalfStar) {
+      stars.push(<Text key="half" style={styles.star}>☆</Text>);
+    }
+    
+    const emptyStars = 5 - Math.ceil(rating);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(<Text key={`empty-${i}`} style={styles.emptyStar}>☆</Text>);
+    }
+    
+    return stars;
+  };
+
+  const formatReviewDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return `${Math.floor(diffDays / 365)} years ago`;
+  };
+
+  const renderReviewCard = (review, index) => (
+    <View key={review.id} style={styles.reviewCard}>
+      <View style={styles.reviewHeader}>
+        <View style={styles.reviewerInfo}>
+          <Text style={styles.reviewerName}>{review.reviewerName}</Text>
+          <Text style={styles.reviewerType}>{review.reviewerType} • {review.country}</Text>
+        </View>
+        <View style={styles.reviewRating}>
+          <View style={styles.starsContainer}>
+            {renderStars(review.rating)}
+          </View>
+          <Text style={styles.reviewDate}>{formatReviewDate(review.date)}</Text>
+        </View>
+      </View>
+      
+      {review.headline && (
+        <Text style={styles.reviewHeadline}>{review.headline}</Text>
+      )}
+      
+      {review.pros && (
+        <Text style={styles.reviewText}>{review.pros}</Text>
+      )}
+      
+      {review.cons && (
+        <View style={styles.consSection}>
+          <Text style={styles.consLabel}>Issues mentioned:</Text>
+          <Text style={styles.consText}>{review.cons}</Text>
+        </View>
+      )}
+      
+      <Text style={styles.reviewSource}>Source: {review.source}</Text>
+    </View>
+  );
 
   const renderRateOption = (rate, index) => (
     <TouchableOpacity
@@ -95,8 +182,22 @@ const HotelDetailScreen = ({ route, navigation }) => {
             <Text style={styles.hotelName}>{hotel.name}</Text>
             
             <View style={styles.ratingContainer}>
-              <Text style={styles.rating}>⭐ {hotel.rating || 'N/A'}</Text>
-              <Text style={styles.category}>{hotel.category || ''}</Text>
+              {hotelReviews && hotelReviews.averageRating ? (
+                <View style={styles.reviewsHeader}>
+                  <View style={styles.starsRow}>
+                    {renderStars(parseFloat(hotelReviews.averageRating))}
+                    <Text style={styles.ratingNumber}>{hotelReviews.averageRating}</Text>
+                  </View>
+                  <Text style={styles.reviewCount}>
+                    {hotelReviews.total} guest {hotelReviews.total === 1 ? 'review' : 'reviews'}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.rating}>⭐ {hotel.rating || 'N/A'}</Text>
+                  <Text style={styles.category}>{hotel.category || ''}</Text>
+                </>
+              )}
             </View>
             
             <Text style={styles.address}>{hotel.address}</Text>
@@ -249,6 +350,61 @@ const HotelDetailScreen = ({ route, navigation }) => {
             </>
           )}
 
+          {/* Hotel Reviews Section */}
+          {hotelReviews && hotelReviews.reviews && hotelReviews.reviews.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Guest Reviews</Text>
+              
+              {/* Reviews Summary */}
+              <View style={styles.reviewsSummary}>
+                <View style={styles.overallRating}>
+                  <Text style={styles.overallRatingNumber}>{hotelReviews.averageRating}</Text>
+                  <View style={styles.overallStars}>
+                    {renderStars(parseFloat(hotelReviews.averageRating))}
+                  </View>
+                  <Text style={styles.totalReviews}>
+                    Based on {hotelReviews.total} reviews
+                  </Text>
+                </View>
+                
+                {/* Rating Distribution */}
+                <View style={styles.ratingDistribution}>
+                  {[5, 4, 3, 2, 1].map(rating => (
+                    <View key={rating} style={styles.ratingBar}>
+                      <Text style={styles.ratingLabel}>{rating}★</Text>
+                      <View style={styles.barContainer}>
+                        <View 
+                          style={[
+                            styles.bar, 
+                            { 
+                              width: `${(hotelReviews.ratingDistribution[rating] / hotelReviews.total * 100)}%` 
+                            }
+                          ]} 
+                        />
+                      </View>
+                      <Text style={styles.ratingCount}>
+                        {hotelReviews.ratingDistribution[rating]}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Individual Reviews */}
+              <View style={styles.reviewsList}>
+                {hotelReviews.reviews.slice(0, 5).map(renderReviewCard)}
+              </View>
+              
+              {hotelReviews.total > 5 && (
+                <TouchableOpacity style={styles.viewMoreButton}>
+                  <Text style={styles.viewMoreText}>
+                    View all {hotelReviews.total} reviews
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Available Rates</Text>
             {rates && rates.length > 0 ? (
@@ -324,6 +480,24 @@ const styles = StyleSheet.create({
   },
   address: {
     ...theme.typography.body,
+    color: theme.colors.textSecondary,
+  },
+  reviewsHeader: {
+    alignItems: 'flex-start',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  ratingNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginLeft: theme.spacing.sm,
+  },
+  reviewCount: {
+    fontSize: 14,
     color: theme.colors.textSecondary,
   },
   section: {
@@ -452,6 +626,163 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     textAlign: 'right',
+  },
+  // Reviews styles
+  reviewsSummary: {
+    flexDirection: 'row',
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  overallRating: {
+    flex: 1,
+    alignItems: 'center',
+    paddingRight: theme.spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
+  },
+  overallRatingNumber: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  overallStars: {
+    flexDirection: 'row',
+    marginVertical: theme.spacing.xs,
+  },
+  totalReviews: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  ratingDistribution: {
+    flex: 1,
+    paddingLeft: theme.spacing.md,
+  },
+  ratingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  ratingLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    width: 25,
+  },
+  barContainer: {
+    flex: 1,
+    height: 8,
+    backgroundColor: theme.colors.lightGray,
+    borderRadius: 4,
+    marginHorizontal: theme.spacing.xs,
+  },
+  bar: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
+  },
+  ratingCount: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    width: 20,
+    textAlign: 'right',
+  },
+  reviewsList: {
+    marginTop: theme.spacing.md,
+  },
+  reviewCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.sm,
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  reviewerType: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  reviewRating: {
+    alignItems: 'flex-end',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  star: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    marginRight: 1,
+  },
+  emptyStar: {
+    fontSize: 14,
+    color: theme.colors.lightGray,
+    marginRight: 1,
+  },
+  reviewDate: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+  },
+  reviewHeadline: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  reviewText: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+    marginBottom: theme.spacing.sm,
+  },
+  consSection: {
+    marginBottom: theme.spacing.sm,
+  },
+  consLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  consText: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  reviewSource: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    textAlign: 'right',
+    marginTop: theme.spacing.xs,
+  },
+  viewMoreButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+  },
+  viewMoreText: {
+    color: theme.colors.surface,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
